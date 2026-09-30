@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.ToTable("Payment");
             entity.HasKey(x => x.PaymentId);
             entity.Property(x => x.OrderId).IsRequired().HasMaxLength(100);
+            entity.HasIndex(x => x.OrderId).IsUnique();
             entity.Property(x => x.CustomerId).IsRequired();
             entity.Property(x => x.Amount).IsRequired();
             entity.Property(x => x.Status).IsRequired();
