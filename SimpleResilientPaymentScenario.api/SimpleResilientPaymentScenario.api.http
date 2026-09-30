@@ -1,6 +1,31 @@
 @SimpleResilientPaymentScenario.api_HostAddress = http://localhost:5111
 
-GET {{SimpleResilientPaymentScenario.api_HostAddress}}/weatherforecast/
-Accept: application/json
+### 1) Create a payment
+POST {{SimpleResilientPaymentScenario.api_HostAddress}}/api/payments
+Content-Type: application/json
 
-###
+{
+  "orderId": "ORD-10001",
+  "customerId": 123,
+  "amount": 500000
+}
+
+### 2) Duplicate OrderId (same body)
+POST {{SimpleResilientPaymentScenario.api_HostAddress}}/api/payments
+Content-Type: application/json
+
+{
+  "orderId": "ORD-10001",
+  "customerId": 123,
+  "amount": 500000
+}
+
+### 3) Another payment with a new OrderId
+POST {{SimpleResilientPaymentScenario.api_HostAddress}}/api/payments
+Content-Type: application/json
+
+{
+  "orderId": "ORD-10002",
+  "customerId": 456,
+  "amount": 750000
+}
