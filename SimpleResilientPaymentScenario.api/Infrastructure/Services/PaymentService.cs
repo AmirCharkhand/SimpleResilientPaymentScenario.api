@@ -77,10 +77,12 @@ public class PaymentService(
         if (existing.CustomerId != request.CustomerId || existing.Amount != request.Amount)
             throw new PaymentConflictException(request.OrderId);
 
-        if (existing.Status == 0)
-            throw new PaymentInProgressException(request.OrderId);
-
-        return new PaymentResult(existing.PaymentId);
+        return existing.Status switch
+        {
+            PaymentStatus.Pending => throw new PaymentInProgressException(request.OrderId),
+            PaymentStatus.Unknown => throw new PaymentStatusUnknownException(request.OrderId),
+            _ => new PaymentResult(existing.PaymentId)
+        };
     }
 
     // 2601 = duplicate key in a unique index, 2627 = unique constraint violation
