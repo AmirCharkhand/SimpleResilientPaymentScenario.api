@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SimpleResilientPaymentScenario.api.Domain.Contracts.Interfaces;
+using SimpleResilientPaymentScenario.api.ExceptionHandling;
 using SimpleResilientPaymentScenario.api.Infrastructure.Banking;
 using SimpleResilientPaymentScenario.api.Infrastructure.Data;
 using SimpleResilientPaymentScenario.api.Infrastructure.Services;
@@ -16,9 +17,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IBankClient, FakeBankClient>();
 
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<PaymentExceptionHandler>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+
+app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
 

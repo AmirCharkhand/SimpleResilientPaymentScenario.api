@@ -29,3 +29,13 @@ Content-Type: application/json
   "customerId": 456,
   "amount": 750000
 }
+
+### 4) Same OrderId, different amount (expect 409 conflict)
+POST {{SimpleResilientPaymentScenario.api_HostAddress}}/api/payments
+Content-Type: application/json
+
+{
+  "orderId": "ORD-10001",
+  "customerId": 123,
+  "amount": 999999
+}
