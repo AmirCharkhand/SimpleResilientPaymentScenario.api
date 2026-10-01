@@ -25,6 +25,12 @@ public sealed class PaymentExceptionHandler : IExceptionHandler
                 Title = "Payment in progress",
                 Detail = exception.Message
             },
+            PaymentStatusUnknownException => new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Payment status unknown",
+                Detail = exception.Message
+            },
             _ => null
         };
 

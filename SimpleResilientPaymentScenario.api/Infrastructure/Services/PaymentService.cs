@@ -2,14 +2,20 @@
 using Microsoft.EntityFrameworkCore;
 using SimpleResilientPaymentScenario.api.Domain.Contracts;
 using SimpleResilientPaymentScenario.api.Domain.Contracts.Interfaces;
+using SimpleResilientPaymentScenario.api.Domain.Enums;
 using SimpleResilientPaymentScenario.api.Domain.Exceptions;
 using SimpleResilientPaymentScenario.api.Domain.Models;
 using SimpleResilientPaymentScenario.api.Infrastructure.Data;
 
 namespace SimpleResilientPaymentScenario.api.Infrastructure.Services;
 
-public class PaymentService(AppDbContext db, IBankClient bankClient) : IPaymentService
+public class PaymentService(
+    AppDbContext db,
+    IBankClient bankClient,
+    ILogger<PaymentService> logger) : IPaymentService
 {
+    private TimeSpan BankTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
     public async Task<PaymentResult> Pay(PaymentRequest request, CancellationToken cancellationToken)
     {
         var payment = new Payment
@@ -17,7 +23,7 @@ public class PaymentService(AppDbContext db, IBankClient bankClient) : IPaymentS
             OrderId = request.OrderId,
             CustomerId = request.CustomerId,
             Amount = request.Amount,
-            Status = 0,
+            Status = PaymentStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -34,17 +40,30 @@ public class PaymentService(AppDbContext db, IBankClient bankClient) : IPaymentS
             return await HandleDuplicateAsync(request, cancellationToken);
         }
 
-        // Only the request that inserted the row reaches the bank.
-        var bankResult = await bankClient.Pay(
-            request.OrderId,
-            request.Amount,
-            cancellationToken);
+        bool isSuccessful;
+        try
+        {
+            using var timeoutCts = new CancellationTokenSource(BankTimeout);
+            var bankResult = await bankClient.Pay(request.OrderId, request.Amount, timeoutCts.Token);
+            isSuccessful = bankResult.IsSuccessful;
+        }
+        catch (Exception ex)
+        {
+            // Timeout or any failure without a definitive answer from the bank:
+            // we cannot know whether the money moved, so we never guess and never retry.
+            logger.LogWarning(ex, "Bank call did not complete for OrderId {OrderId}; marking payment as Unknown.", request.OrderId);
 
-        payment.Status = bankResult.IsSuccessful
-            ? 1
-            : 2;
+            payment.Status = PaymentStatus.Unknown;
+            await db.SaveChangesAsync(CancellationToken.None);
 
-        await db.SaveChangesAsync(cancellationToken);
+            throw new PaymentStatusUnknownException(request.OrderId);
+        }
+
+        payment.Status = isSuccessful
+            ? PaymentStatus.Succeeded
+            : PaymentStatus.Failed;
+
+        await db.SaveChangesAsync(CancellationToken.None);
 
         return new PaymentResult(payment.PaymentId);
     }
